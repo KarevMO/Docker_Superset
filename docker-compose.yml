@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  # 1. База данных
+  db:
+    image: postgres:15
+    container_name: superset_db
+    restart: always
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: 1212
+      POSTGRES_DB: superset
+    ports:
+      - "5432:5432"
+    volumes:
+      # Вот здесь магия сохранения данных:
+      # папка ./docker_data/postgres на Mac будет связана с БД внутри
+      - ./docker_data/postgres:/var/lib/postgresql/data
+
+  # 2. Кэш для скорости работы
+  redis:
+    image: redis:7
+    container_name: superset_redis
+    restart: always
+    volumes:
+      - ./docker_data/redis:/data
+
+  # 3. Само приложение Superset
+  superset:
+    build: .   # Точка означает "искать Dockerfile в этой же папке"
+    container_name: superset_app
+    restart: always
+    ports:
+       - "8088:8088"
+    environment:
+      SUPERSET_SECRET_KEY: 'BBNBaTyYSDNw9zXh25aycMq7pOL52QnLLBRT4nhMgIumVd5WDg' # Замени на случайную строку
+      SQLALCHEMY_DATABASE_URI: postgresql://admin:1212@db:5432/superset
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      GOOGLE_APPLICATION_CREDENTIALS: /app/google_key.json
+    volumes:
+      # Сохраняем загруженные файлы и настройки Superset
+      - ./docker_data/superset_home:/app/superset_home
+      # Монтируем файл ключа из текущей папки внутрь контейнера:
+      - ./google_key.json:/app/google_key.json
+    depends_on:
+      - db
+      - redis
